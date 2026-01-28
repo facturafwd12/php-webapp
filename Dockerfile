@@ -1,17 +1,18 @@
 FROM php:8.2-apache
 
-# 1. Enable mod_rewrite for URL routing
+# Disable conflicting MPM modules and ensure only mpm_prefork is active
+RUN a2dismod mpm_event mpm_worker 2>/dev/null || true && \
+    a2enmod mpm_prefork
+
+# Enable Apache rewrite module
 RUN a2enmod rewrite
 
-# 2. Allow .htaccess files to work (Standard fix)
-# This replaces "AllowOverride None" with "AllowOverride All" in the main config
-RUN sed -i '/<Directory \/var\/www\/>/,/<\/Directory>/ s/AllowOverride None/AllowOverride All/' /etc/apache2/apache2.conf
-
-# 3. Copy your application source code
+# Copy all PHP files to Apache root
 COPY . /var/www/html/
 
-# 4. Set correct permissions so Apache can read/write
+# Fix permissions
 RUN chown -R www-data:www-data /var/www/html
 
-# 5. Expose the standard HTTP port
+# Expose Apache port
 EXPOSE 80
+ 
