@@ -1,12 +1,23 @@
-FROM php:8.2-apache
+FROM php:8.2-cli
 
-RUN echo "cache-bust-1"
+# Install Apache manually
+RUN apt-get update && apt-get install -y apache2 \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN rm -f /etc/apache2/mods-enabled/mpm_*.load \
-    && rm -f /etc/apache2/mods-enabled/mpm_*.conf
+# Enable required modules
+RUN a2enmod rewrite mpm_prefork
 
-RUN a2enmod mpm_prefork rewrite
+# Disable other MPMs HARD
+RUN a2dismod mpm_event mpm_worker || true
+
+# Allow .htaccess
 RUN sed -i 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf
 
+# Copy app
 COPY . /var/www/html/
 RUN chown -R www-data:www-data /var/www/html
+
+EXPOSE 80
+
+# Start Apache manually (IMPORTANT)
+CMD ["apachectl", "-D", "FOREGROUND"]
