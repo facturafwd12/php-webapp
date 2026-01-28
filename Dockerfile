@@ -1,23 +1,24 @@
-FROM php:8.2-cli
+FROM php:8.2-apache
 
-# Install Apache
-RUN apt-get update && apt-get install -y apache2 \
-    && rm -rf /var/lib/apt/lists/*
+# 1. Enable mod_rewrite (MPM prefork is already enabled by default)
+RUN a2enmod rewrite
 
-# Disable default MPMs FIRST
-RUN a2dismod mpm_event mpm_worker || true
+# 2. Allow .htaccess files (replaces your sed command with a cleaner env var approach)
+ENV APACHE_DOCUMENT_ROOT /var/www/html
+RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
+RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
 
-# Enable required modules
-RUN a2enmod mpm_prefork rewrite
+# Note: The official image defaults AllowOverride to None.
+# If you rely on .htaccess, you can use this specific command to enable it:
+RUN sed -i '/<Directory \/var\/www\/>/,/<\/Directory>/ s/AllowOverride None/AllowOverride All/' /etc/apache2/apache2.conf
 
-# Allow .htaccess
-RUN sed -i 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf
-
-# Copy app
+# 3. Copy your application source
 COPY . /var/www/html/
+
+# 4. Set ownership
 RUN chown -R www-data:www-data /var/www/html
 
+# EXPOSE is 80 by default in this image, but you can keep it explicit
 EXPOSE 80
 
-# Start Apache in foreground
-CMD ["apachectl", "-D", "FOREGROUND"]
+# CMD is handled automatically by the base image (apache2-foreground)
